@@ -1,5 +1,12 @@
 import argparse
 import cv2
+from linedetector import *
+from LaneDetection import Line, ImageLine
+
+
+# Variables definitions
+
+DEFAULT_IMAGE_SHAPE = (720, 1280, 3)
 
 
 def parse():
@@ -38,16 +45,23 @@ def main():
     arguments = parse()
     input_iterator = open_stream(arguments)
 
+    if arguments.lane:
+        ret, mtx, dist, rvecs, tvecs = load_camera()
+        line_image = ImageLine(np.zeros(shape=DEFAULT_IMAGE_SHAPE, dtype=np.float32), ret, mtx, dist, rvecs, tvecs)
+        line_info = Line()
+
+
     while input_iterator.isOpened():
         ret,  frame = input_iterator.read()
         if ret:
             if arguments.lane:
                 # Do lane lines processing
                 # TODO: implement lane line processing
+                raise NotImplemented
             elif arguments.cars:
                 # Car Detection
                 # TODO: implement car detection
-
+                raise NotImplemented
             cv2.imshow('final', frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):

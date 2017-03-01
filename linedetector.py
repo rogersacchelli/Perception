@@ -3,127 +3,106 @@ import cv2
 import glob
 import os
 import pickle
-import matplotlib.pyplot as plt
-import pylab
 import time
-import imageio
-from scipy.misc import imread, imresize, imsave
-from LaneDetection import Line, ImageLine
 
 out_examples = False
 MOV_AVG_LENGTH = 5
 
 
-def linedetector():
+def linedetector(img, image_data):
 
+    #image_data = ImageLine(np.zeros(shape=DEFAULT_IMAGE_SHAPE, dtype=np.float32), ret, mtx, dist, rvecs, tvecs)
+
+    t0 = time.time()
+    image_data.image = img
+    image_data.undistort()
+    # --------------------------- Binary Thresholding ----------------------------
+    #
+    # if out_examples:
+    #     test_images = glob.glob('test_images/*.jpg')
+    #     plt.figure(figsize=(14, 10))
+    #     for i, img in enumerate(test_images):
+    #         img_b = image_binary(cv2.undistort(cv2.imread(img), mtx, dist, None, mtx))
+    #         plt.subplot(3, 3, i + 1)
+    #         plt.axis('off')
+    #         plt.title('%s' % str(img))
+    #         plt.imshow(img_b, cmap='gray')
+    #     plt.show()
+
+
+    image_data.binary()
+    image_data.mask()
+    image_data.warp()
+
+    # if out_examples:
+    #     # Count from mid frame beyond
+    #     histogram = np.sum(image_data.warped_binary[int(image_data.warped_binary.shape[0] / 2):, :], axis=0)
+    #     plt.plot(histogram)
+    #     plt.savefig('histogram.jpg')
+    #     plt.close()
+    #
+    #     plt.figure(figsize=(21, 15))
+    #     for i, img in enumerate([img, img_b, img_w, imread('histogram.jpg')]):
+    #         plt.subplot(2, 2, i + 1)
+    #         plt.imshow(img, cmap='gray')
+    #         if i == 3:
+    #             plt.axis('off')
+    #     plt.show()
+
+    if not image_data.right__detected or not image_data.left_detected:
+        image_data.start2fit(image_data)
+    else:
+        image_data.fit(image_data)
+
+    try:
+        mov_avg_left = np.append(mov_avg_left,np.array([left_fit]), axis=0)
+        mov_avg_right = np.append(mov_avg_right,np.array([right_fit]), axis=0)
+
+    except:
+
+        mov_avg_left = np.array([left_fit])
+        mov_avg_right = np.array([right_fit])
+
+    left_fit = np.array([np.mean(mov_avg_left[::-1][:,0][0:MOV_AVG_LENGTH]),
+                         np.mean(mov_avg_left[::-1][:,1][0:MOV_AVG_LENGTH]),
+                         np.mean(mov_avg_left[::-1][:,2][0:MOV_AVG_LENGTH])])
+    right_fit = np.array([np.mean(mov_avg_right[::-1][:,0][0:MOV_AVG_LENGTH]),
+                         np.mean(mov_avg_right[::-1][:,1][0:MOV_AVG_LENGTH]),
+                         np.mean(mov_avg_right[::-1][:,2][0:MOV_AVG_LENGTH])])
+
+    if mov_avg_left.shape[0] > 1000:
+        mov_avg_left = mov_avg_left[0:MOV_AVG_LENGTH]
+    if mov_avg_right.shape[0] > 1000:
+        mov_avg_right = mov_avg_right[0:MOV_AVG_LENGTH]
+
+    if abs(left_fit[0]) < 5e-5:
+        image_data.turn_side = 0
+    elif left_fit[0] > 0:
+        image_data.turn_side = 1
+    else:
+        image_data.turn_side = -1
+
+    print(image_data.turn_side)
+
+
+
+def load_camera():
     # ------------------------ Camera Calibration ------------------------
     # As calibration may take some time, save calibration data into pickle file to speed up testing
-    if not os.path.exists('calibration.p'):
+    if not os.path.exists('camera_files/calibration.p'):
         # Read all jpg files from calibration image folder
-        images = glob.glob('camera_cal/*.jpg')
+        images = glob.glob('camera_files/camera_cal/*.jpg')
 
-        with open('calibration.p', mode='wb') as f:
+        with open('camera_files/calibration.p', mode='wb') as f:
             ret, mtx, dist, rvecs, tvecs = calibrate_camera(images, nx=9, ny=6)
             pickle.dump([ret, mtx, dist, rvecs, tvecs], f)
             f.close()
     else:
-        with open('calibration.p', mode='rb') as f:
+        with open('camera_files/calibration.p', mode='rb') as f:
             ret, mtx, dist, rvecs, tvecs = pickle.load(f)
             f.close()
 
-    if out_examples:
-        # output undistorted image to output_image
-        to_calibrate = imread('camera_cal/calibration3.jpg')
-        imsave('output_images/calibration3_calibrated.jpg', cv2.undistort(to_calibrate, mtx, dist, None, mtx))
-
-    vid = imageio.get_reader('project_video.mp4', 'ffmpeg')
-
-    lines = Line()
-    image_data = ImageLine(np.zeros(shape=(720,1280,3),dtype=np.float32), ret, mtx, dist, rvecs, tvecs)
-
-    for i, img in enumerate(vid):
-        t0 = time.time()
-        image_data.image = img
-        image_data.undistort()
-        # --------------------------- Binary Thresholding ----------------------------
-        #
-        # if out_examples:
-        #     test_images = glob.glob('test_images/*.jpg')
-        #     plt.figure(figsize=(14, 10))
-        #     for i, img in enumerate(test_images):
-        #         img_b = image_binary(cv2.undistort(cv2.imread(img), mtx, dist, None, mtx))
-        #         plt.subplot(3, 3, i + 1)
-        #         plt.axis('off')
-        #         plt.title('%s' % str(img))
-        #         plt.imshow(img_b, cmap='gray')
-        #     plt.show()
-
-
-        image_data.binary()
-        image_data.mask()
-        image_data.warp()
-
-        # if out_examples:
-        #     # Count from mid frame beyond
-        #     histogram = np.sum(image_data.warped_binary[int(image_data.warped_binary.shape[0] / 2):, :], axis=0)
-        #     plt.plot(histogram)
-        #     plt.savefig('histogram.jpg')
-        #     plt.close()
-        #
-        #     plt.figure(figsize=(21, 15))
-        #     for i, img in enumerate([img, img_b, img_w, imread('histogram.jpg')]):
-        #         plt.subplot(2, 2, i + 1)
-        #         plt.imshow(img, cmap='gray')
-        #         if i == 3:
-        #             plt.axis('off')
-        #     plt.show()
-
-        if not lines.right__detected or not lines.left_detected:
-            lines.start2fit(image_data)
-        else:
-            lines.fit(image_data)
-
-        try:
-            mov_avg_left = np.append(mov_avg_left,np.array([left_fit]), axis=0)
-            mov_avg_right = np.append(mov_avg_right,np.array([right_fit]), axis=0)
-
-        except:
-
-            mov_avg_left = np.array([left_fit])
-            mov_avg_right = np.array([right_fit])
-
-        left_fit = np.array([np.mean(mov_avg_left[::-1][:,0][0:MOV_AVG_LENGTH]),
-                             np.mean(mov_avg_left[::-1][:,1][0:MOV_AVG_LENGTH]),
-                             np.mean(mov_avg_left[::-1][:,2][0:MOV_AVG_LENGTH])])
-        right_fit = np.array([np.mean(mov_avg_right[::-1][:,0][0:MOV_AVG_LENGTH]),
-                             np.mean(mov_avg_right[::-1][:,1][0:MOV_AVG_LENGTH]),
-                             np.mean(mov_avg_right[::-1][:,2][0:MOV_AVG_LENGTH])])
-
-        if mov_avg_left.shape[0] > 1000:
-            mov_avg_left = mov_avg_left[0:MOV_AVG_LENGTH]
-        if mov_avg_right.shape[0] > 1000:
-            mov_avg_right = mov_avg_right[0:MOV_AVG_LENGTH]
-
-        if abs(left_fit[0]) < 5e-5:
-            lines.turn_side = 0
-        elif left_fit[0] > 0:
-            lines.turn_side = 1
-        else:
-            lines.turn_side = -1
-
-
-        t_draw0 = time.time()
-        #final = draw_lines(img, img_w, left_fit, right_fit, perspective=[src,dst])
-        t_draw = time.time() - t_draw0
-
-        # print('fps: %d' % int((1./(t1-t0))))
-        #print('undist: %f [ms] | bin: %f [ms]| warp: %f [ms]| fit: %f [ms]| draw: %f [ms] | fps %f'
-        #      % (t_dist * 1000, t_bin * 1000, t_warp * 1000, t_fit * 1000, t_draw * 1000, 1./(time.time() - t_fps0)))
-        print(lines.turn_side)
-        #cv2.imshow('final', final)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    return ret, mtx, dist, rvecs, tvecs
 
 
 def calibrate_camera(image_files, nx, ny):

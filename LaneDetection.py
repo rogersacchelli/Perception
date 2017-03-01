@@ -3,6 +3,9 @@ import cv2
 import matplotlib.pyplot as plt
 
 class Line:
+    """
+    Line class returns information for the detected lines on the image.
+    """
     def __init__(self):
         self.right_detected = False
         self.left_detected = False
@@ -123,7 +126,11 @@ class Line:
 
         return left_fit, right_fit
 
+
 class ImageLine:
+    """
+    ImageLine Class performs image processing on the input image.
+    """
     def __init__(self, image, ret, mtx, dist, rvecs, tvecs):
         self.shape_h = image.shape[0]
         self.shape_w = image.shape[1]
