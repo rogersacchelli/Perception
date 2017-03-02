@@ -137,10 +137,10 @@ class ImageLine:
         self.shape_h = image.shape[0]
         self.shape_w = image.shape[1]
 
-        self.binary_output = np.zeros(shape=(self.shape_h,self.shape_w),dtype=np.float)
-        self.binary_sobel = np.zeros(shape=(self.shape_h,self.shape_w),dtype=np.float)
-        self.binary_hls_s = np.zeros(shape=(self.shape_h,self.shape_w),dtype=np.float)
-        self.binary_mask = np.zeros(shape=(self.shape_h,self.shape_w),dtype=np.uint8)
+        self.binary_output = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.float)
+        self.binary_sobel = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.float)
+        self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.float)
+        self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.uint8)
 
         self.warped_binary = np.zeros_like(image)
         self.unwarped_binary = np.zeros_like(image)
@@ -154,6 +154,13 @@ class ImageLine:
         self.rvecs = rvecs
         self.tvecs = tvecs
 
+        self.line_dst_offset = 100
+        self.warp_src = [[595, 452], [685, 452], [1110, self.shape_h],[220, self.shape_h]]
+        self.warp_dst = [[self.warp_src[3][0] + self.line_dst_offset, 0],
+                         [self.warp_src[2][0] - self.line_dst_offset, 0],
+                         [self.warp_src[2][0] - self.line_dst_offset,
+                          self.warp_src[2][1]], [self.warp_src[3][0] + self.line_dst_offset, self.warp_src[3][1]]]
+
     def to_bgr(self):
         return cv2.cvtColor(self.image, cv2.COLOR_RGB2BGR)
 
@@ -161,6 +168,7 @@ class ImageLine:
         self.image = cv2.undistort(self.to_bgr(), self.mtx, self.dist, None, self.mtx)
 
     def binary(self, sobel_kernel=7, mag_thresh=(3, 255), s_thresh=(170, 255), debug=False):
+
         # --------------------------- Binary Thresholding ----------------------------
         # Binary Thresholding is an intermediate step to improve lane line perception
         # it includes image transformation to gray scale to apply sobel transform and
@@ -225,7 +233,7 @@ class ImageLine:
 
         if not inverse_warp:
             self.warped_binary = cv2.warpPerspective(self.binary_mask, cv2.getPerspectiveTransform(src, dst),
-                                                     dsize=(self.shape_w,self.shape_h), flags=cv2.INTER_LINEAR)
+                                                     dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
         else:
             self.unwarped_binary = cv2.warpPerspective(self.binary_mask, cv2.getPerspectiveTransform(dst, src),
                                                        dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)

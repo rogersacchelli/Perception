@@ -12,37 +12,9 @@ MOV_AVG_LENGTH = 5
 def line_detector(image_data, line_info):
 
     image_data.undistort()
-    # --------------------------- Binary Thresholding ----------------------------
-    #
-    # if out_examples:
-    #     test_images = glob.glob('test_images/*.jpg')
-    #     plt.figure(figsize=(14, 10))
-    #     for i, img in enumerate(test_images):
-    #         img_b = image_binary(cv2.undistort(cv2.imread(img), mtx, dist, None, mtx))
-    #         plt.subplot(3, 3, i + 1)
-    #         plt.axis('off')
-    #         plt.title('%s' % str(img))
-    #         plt.imshow(img_b, cmap='gray')
-    #     plt.show()
-
     image_data.binary()
     image_data.mask()
     image_data.warp()
-
-    # if out_examples:
-    #     # Count from mid frame beyond
-    #     histogram = np.sum(image_data.warped_binary[int(image_data.warped_binary.shape[0] / 2):, :], axis=0)
-    #     plt.plot(histogram)
-    #     plt.savefig('histogram.jpg')
-    #     plt.close()
-    #
-    #     plt.figure(figsize=(21, 15))
-    #     for i, img in enumerate([img, img_b, img_w, imread('histogram.jpg')]):
-    #         plt.subplot(2, 2, i + 1)
-    #         plt.imshow(img, cmap='gray')
-    #         if i == 3:
-    #             plt.axis('off')
-    #     plt.show()
 
     if not line_info.right_detected or not line_info.left_detected:
         line_info.start2fit(image_data)
@@ -54,7 +26,6 @@ def line_detector(image_data, line_info):
         line_info.mov_avg_right = np.append(line_info.mov_avg_right, np.array([line_info.right_fit]), axis=0)
 
     except:
-
         line_info.mov_avg_left = np.array([line_info.left_fit])
         line_info.mov_avg_right = np.array([line_info.right_fit])
 
@@ -77,6 +48,8 @@ def line_detector(image_data, line_info):
         line_info.turn_side = 1
     else:
         line_info.turn_side = -1
+
+    draw_lines_new(image_data, line_info)
 
     return image_data, line_info
 
@@ -196,8 +169,7 @@ def draw_lines(img, img_w, left_fit, right_fit, perspective):
     left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval * ym_per_pix + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
         2 * left_fit_cr[0])
 
-    right_curverad = (
-                         (1 + (2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
+    right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(
         2 * right_fit_cr[0])
 
     radius = round((float(left_curverad) + float(right_curverad))/2.,2)
@@ -222,32 +194,23 @@ def draw_lines(img, img_w, left_fit, right_fit, perspective):
 
 
 def draw_lines_new(image_data, line_info, perspective):
-    # Create an image to draw the lines on
-    #warp_zero = np.zeros_like(img_w).astype(np.uint8)
-    #color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-    #color_warp_center = np.dstack((warp_zero, warp_zero, warp_zero))
 
-    left_fitx = line_info.mov_avg_left[0] * image_data.ploty ** 2 + line_info.mov_avg_left[1] * image_data.ploty \
-                + line_info.mov_avg_left[2]
-    right_fitx = line_info.mov_avg_right[0] * line_info.mov_avg_right ** 2 + line_info.mov_avg_right[1] * image_data.ploty \
-                 + line_info.mov_avg_right[2]
+    left_fitx = line_info.left_fit[0] * image_data.ploty ** 2 + line_info.left_fit[1] * image_data.ploty +\
+                line_info.left_fit[2]
+    right_fitx = line_info.right_fit[0] * line_info.right_fit ** 2 + line_info.right_fit[1] * image_data.ploty + \
+                 line_info.right_fit[2]
 
     # Recast the x and y points into usable format for cv2.fillPoly()
     pts_left = np.array([np.transpose(np.vstack([left_fitx, image_data.ploty]))])
     pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, image_data.ploty])))])
-    pts = np.hstack((pts_left, pts_right))
-
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(image_data.image_warp, np.int_([pts]), (0, 255, 0))
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     #newwarp = warp(color_warp, perspective[1], perspective[0])
     # Combine the result with the original image
     #result = cv2.addWeighted(img, 1, newwarp, 0.2, 0)
 
-    color_warp_lines = np.dstack((warp_zero, warp_zero, warp_zero))
-    cv2.polylines(color_warp_lines, np.int_([pts_right]), isClosed=False, color=(255, 255, 0), thickness=25)
-    cv2.polylines(color_warp_lines, np.int_([pts_left]), isClosed=False, color=(0, 0, 255), thickness=25)
+    cv2.polylines(image_data.warped_binary, np.int_([pts_right]), isClosed=False, color=(255, 255, 0), thickness=25)
+    cv2.polylines(image_data.warped_binary, np.int_([pts_left]), isClosed=False, color=(0, 0, 255), thickness=25)
 
     # ----- Radius Calculation ------ #
 
@@ -270,16 +233,14 @@ def draw_lines_new(image_data, line_info, perspective):
 
     # ----- Off Center Calculation ------ #
 
-    lane_width = (right_fit[2] - left_fit[2]) * xm_per_pix
-    center = (right_fit[2] - left_fit[2]) / 2
-    off_left = (center - left_fit[2]) * xm_per_pix
-    off_right = -(right_fit[2] - center) * xm_per_pix
-    off_center = round((center - img.shape[0] / 2.) * xm_per_pix,2)
+    lane_width = (line_info.right_fit[2] - line_info.left_fit[2]) * xm_per_pix
+    center = (line_info.right_fit[2] - line_info.left_fit[2]) / 2
+    off_left = (center - line_info.left_fit[2]) * xm_per_pix
+    off_right = -(line_info.right_fit[2] - center) * xm_per_pix
+    off_center = round((center - image_data.shape_h / 2.) * xm_per_pix,2)
 
     # --- Print text on screen ------ #
-    #if radius < 5000.0:
     text = "radius = %s [m]\noffcenter = %s [m]" % (str(radius), str(off_center))
-    #text = "radius = -- [m]\noffcenter = %s [m]" % (str(off_center))
 
     for i, line in enumerate(text.split('\n')):
         i = 50 + 20 * i
