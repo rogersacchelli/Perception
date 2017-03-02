@@ -13,7 +13,8 @@ class Line:
         self.right_inside_detected = False
         self.right_out_detected = False
 
-        self.radius = 0.0
+        self.lef_radius = 0.0
+        self.right_radius = 0.0
         self.turn_side = 0
         self.left_fit = 0
         self.right_fit = 0
@@ -144,6 +145,8 @@ class ImageLine:
         self.warped_binary = np.zeros_like(image)
         self.unwarped_binary = np.zeros_like(image)
 
+        self.ploty = np.linspace(0, self.shape_h - 1, self.shape_h)
+
         self.image = image
         self.ret = ret
         self.mtx = mtx
@@ -202,7 +205,6 @@ class ImageLine:
         cv2.fillPoly(self.binary_mask, mask_polyg, 255)
 
         self.binary_mask = cv2.bitwise_and(self.binary_output, self.binary_mask)
-
 
     def warp(self, inverse_warp=False):
 
