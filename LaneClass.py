@@ -21,6 +21,9 @@ class Line:
         self.mov_avg_left = np.array([])
         self.mov_avg_right = np.array([])
 
+        self.ym_per_pix = 30 / 720.  # meters per pixel in y dimension
+        self.xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+
     def start2fit(self, image_data):
         """
         :param image_data: ImageLine Object
@@ -102,32 +105,6 @@ class Line:
         self.left_fit = left_fit
         self.right_fit = right_fit
 
-    def fit(self):
-        # Assume you now have a new warped binary image
-        # from the next frame of video (also called "binary_warped")
-        # It's now much easier to find line pixels!
-        nonzero = img_w.nonzero()
-        nonzeroy = np.array(nonzero[0])
-        nonzerox = np.array(nonzero[1])
-        margin = 100
-        left_lane_inds = (
-        (nonzerox > (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] - margin)) & (
-            nonzerox < (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] + margin)))
-        right_lane_inds = (
-            (nonzerox > (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] - margin)) & (
-                nonzerox < (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] + margin)))
-
-        # Again, extract left and right line pixel positions
-        leftx = nonzerox[left_lane_inds]
-        lefty = nonzeroy[left_lane_inds]
-        rightx = nonzerox[right_lane_inds]
-        righty = nonzeroy[right_lane_inds]
-        # Fit a second order polynomial to each
-        left_fit = np.polyfit(lefty, leftx, 2)
-        right_fit = np.polyfit(righty, rightx, 2)
-
-        return left_fit, right_fit
-
 
 class ImageLine:
     """
@@ -137,13 +114,13 @@ class ImageLine:
         self.shape_h = image.shape[0]
         self.shape_w = image.shape[1]
 
-        self.binary_output = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.float)
-        self.binary_sobel = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.float)
-        self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.float)
-        self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w),dtype=np.uint8)
+        self.binary_output = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_sobel = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.uint8)
 
         self.warped_binary = np.zeros_like(image)
-        self.unwarped_binary = np.zeros_like(image)
+        self.unwarped_lines = np.zeros_like(image, dtype=np.int8)
 
         self.ploty = np.linspace(0, self.shape_h - 1, self.shape_h)
 
@@ -155,17 +132,21 @@ class ImageLine:
         self.tvecs = tvecs
 
         self.line_dst_offset = 100
-        self.warp_src = [[595, 452], [685, 452], [1110, self.shape_h],[220, self.shape_h]]
-        self.warp_dst = [[self.warp_src[3][0] + self.line_dst_offset, 0],
-                         [self.warp_src[2][0] - self.line_dst_offset, 0],
-                         [self.warp_src[2][0] - self.line_dst_offset,
-                          self.warp_src[2][1]], [self.warp_src[3][0] + self.line_dst_offset, self.warp_src[3][1]]]
 
     def to_bgr(self):
         return cv2.cvtColor(self.image, cv2.COLOR_RGB2BGR)
 
+    def reset_binary_images(self):
+        self.binary_output = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_sobel = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.uint8)
+
+        self.warped_binary = np.zeros_like(self.image)
+        self.unwarped_lines = np.zeros_like(self.image, dtype=np.int8)
+
     def undistort(self):
-        self.image = cv2.undistort(self.to_bgr(), self.mtx, self.dist, None, self.mtx)
+        self.image = cv2.undistort(self.image, self.mtx, self.dist, None, self.mtx)
 
     def binary(self, sobel_kernel=7, mag_thresh=(3, 255), s_thresh=(170, 255), debug=False):
 
@@ -235,7 +216,7 @@ class ImageLine:
             self.warped_binary = cv2.warpPerspective(self.binary_mask, cv2.getPerspectiveTransform(src, dst),
                                                      dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
         else:
-            self.unwarped_binary = cv2.warpPerspective(self.binary_mask, cv2.getPerspectiveTransform(dst, src),
-                                                       dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
+            return cv2.warpPerspective(self.unwarped_lines, cv2.getPerspectiveTransform(dst, src),
+                                                      dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
 
 
