@@ -3,7 +3,6 @@ import cv2
 import glob
 import os
 import pickle
-import time
 
 OUT_EXAMPLES = False
 MOV_AVG_LENGTH = 5
