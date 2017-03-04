@@ -128,9 +128,12 @@ class ImageLine:
         self.shape_h = image.shape[0]
         self.shape_w = image.shape[1]
 
-        self.binary_output = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_sobel = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_output_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_output_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_sobel_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_sobel_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_lab_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.uint8)
 
         self.warped_binary = np.zeros_like(image)
@@ -150,9 +153,12 @@ class ImageLine:
         return cv2.cvtColor(self.image, cv2.COLOR_RGB2BGR)
 
     def reset_binary_images(self):
-        self.binary_output = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_sobel = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_output_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_output_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_sobel_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_sobel_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_lab_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.uint8)
 
         self.warped_binary = np.zeros_like(self.image)
@@ -161,41 +167,62 @@ class ImageLine:
     def undistort(self):
         self.image = cv2.undistort(self.image, self.mtx, self.dist, None, self.mtx)
 
-    def binary(self, sobel_kernel=7, mag_thresh=(3, 255), s_thresh=(170, 255), debug=False):
+    def binary(self, sobel_kernel=9, mag_thresh=(3, 255), s_thresh=(190, 255), debug=False):
 
         # --------------------------- Binary Thresholding ----------------------------
         # Binary Thresholding is an intermediate step to improve lane line perception
         # it includes image transformation to gray scale to apply sobel transform and
         # binary slicing to output 0,1 type images according to pre-defined threshold.
         #
-        # Also it's performed RGB to HSV transformation to get S information which in-
+        # Also it's performed RGB to HLS transformation to get S information which in-
         # tensifies lane line detection.
         #
         # The output is a binary image combined with best of both S transform and mag-
         # nitude thresholding.
 
         hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
-        yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
+        lab = cv2.cvtColor(self.image, cv2.COLOR_BGR2LAB)
         self.hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
-        self.yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
+        self.lab = cv2.cvtColor(self.image, cv2.COLOR_BGR2LAB)
+
+        # HLS COMPUTATION - WHILE LINES DETECTION
 
         # Sobel Transform
-        sobelx = cv2.Sobel(hls[:, :, 1], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-        sobely = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+        sobelx_s = cv2.Sobel(hls[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+        sobely_s = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
-        sobel_abs = np.abs(sobelx ** 2 + sobely ** 2)
-        sobel_abs = np.uint8(255 * sobel_abs / np.max(sobel_abs))
+        sobel_abs_s = np.abs(sobelx_s ** 2 + sobely_s ** 2)
+        sobel_abs_s = np.uint8(255 * sobel_abs_s / np.max(sobel_abs_s))
 
-        self.binary_sobel[(sobel_abs > mag_thresh[0]) & (sobel_abs <= mag_thresh[1])] = 1
+        self.binary_sobel_s[(sobel_abs_s > mag_thresh[0]) & (sobel_abs_s <= mag_thresh[1])] = 1
 
         # Threshold color channel
         self.binary_hls_s[(hls[:, :, 2] >= s_thresh[0]) & (hls[:, :, 2] <= s_thresh[1])] = 1
 
         # Combine the two binary thresholds
 
-        self.binary_output[(self.binary_hls_s == 1) | (self.binary_sobel == 1)] = 1
-        self.binary_output = np.uint8(255 * self.binary_output / np.max(self.binary_output))
-        cv2.imshow('binary_out', self.binary_output)
+        self.binary_output_s[(self.binary_hls_s == 1) | (self.binary_sobel_s == 1)] = 1
+        self.binary_output_s = np.uint8(255 * self.binary_output_s / np.max(self.binary_output_s))
+
+        # LAB COMPUTATION - YELLOW LINES DETECTION
+        # Sobel Transform
+        sobelx_b = cv2.Sobel(lab[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+        sobely_b = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+
+        sobel_abs_b = np.abs(sobelx_b ** 2 + sobely_b ** 2)
+        sobel_abs_b = np.uint8(255 * sobel_abs_b / np.max(sobel_abs_b))
+
+        self.binary_sobel_b[(sobel_abs_b > mag_thresh[0]) & (sobel_abs_b <= mag_thresh[1])] = 1
+
+        # Threshold color channel
+        self.binary_lab_b[(lab[:, :, 2] >= s_thresh[0]) & (lab[:, :, 2] <= s_thresh[1])] = 1
+
+        # Combine the two binary thresholds
+
+        self.binary_output_b[(self.binary_lab_b == 1) | (self.binary_sobel_b == 1)] = 1
+        self.binary_output_b = np.uint8(255 * self.binary_output_b / np.max(self.binary_output_b))
+
+        cv2.imshow('binary_out', self.binary_output_b)
 
     def mask(self):
         # ---------------- MASKED IMAGE --------------------
@@ -210,7 +237,7 @@ class ImageLine:
         # Applying polygon
         cv2.fillPoly(self.binary_mask, mask_polyg, 255)
 
-        self.binary_mask = cv2.bitwise_and(self.binary_output, self.binary_mask)
+        self.binary_mask = cv2.bitwise_and(self.binary_output_s, self.binary_mask)
 
     def warp(self, inverse_warp=False):
 
