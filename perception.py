@@ -60,8 +60,8 @@ def main():
                 # TODO: implement car detection
                 raise NotImplemented
 
-            cv2.imshow('final', line_image.image)
-            cv2.imshow('image_roi', line_image.image_roi)
+            #cv2.imshow('final', line_image.image)
+            #cv2.imshow('image_roi', line_image.image_roi)
             line_image.reset_binary_images()
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
