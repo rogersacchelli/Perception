@@ -7,9 +7,17 @@ import time
 
 OUT_EXAMPLES = False
 MOV_AVG_LENGTH = 5
+REGION_OF_INTEREST = (.5, 0.95, 0., 1.)     # (y_start, y_end, x_start, x_end) relative to image size
 
 
 def line_detector(image_data, line_info):
+
+    start_y = REGION_OF_INTEREST[0] * image_data.shape_h
+    end_y = REGION_OF_INTEREST[1] * image_data.shape_h
+    start_x = REGION_OF_INTEREST[2] * image_data.shape_w
+    end_x = REGION_OF_INTEREST[3] * image_data.shape_w
+
+    image_data.image_roi = image_data.image[start_y:end_y, start_x:end_x, :]
 
     image_data.undistort()
     image_data.binary()

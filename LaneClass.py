@@ -118,6 +118,13 @@ class ImageLine:
     ImageLine Class performs image processing on the input image.
     """
     def __init__(self, image, ret, mtx, dist, rvecs, tvecs):
+
+        self.image = image
+        self.image_roi = 0
+
+        self.hls = 0
+        self.yuv = 0
+
         self.shape_h = image.shape[0]
         self.shape_w = image.shape[1]
 
@@ -131,7 +138,6 @@ class ImageLine:
 
         self.ploty = np.linspace(0, self.shape_h - 1, self.shape_h)
 
-        self.image = image
         self.ret = ret
         self.mtx = mtx
         self.dist = dist
@@ -168,7 +174,10 @@ class ImageLine:
         # The output is a binary image combined with best of both S transform and mag-
         # nitude thresholding.
 
-        hls = cv2.cvtColor(self.image, cv2.COLOR_RGB2HLS)
+        hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
+        yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
+        self.hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
+        self.yuv = cv2.cvtColor(self.image, cv2.COLOR_BGR2YUV)
 
         # Sobel Transform
         sobelx = cv2.Sobel(hls[:, :, 1], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
@@ -186,6 +195,7 @@ class ImageLine:
 
         self.binary_output[(self.binary_hls_s == 1) | (self.binary_sobel == 1)] = 1
         self.binary_output = np.uint8(255 * self.binary_output / np.max(self.binary_output))
+        cv2.imshow('binary_out', self.binary_output)
 
     def mask(self):
         # ---------------- MASKED IMAGE --------------------

@@ -4,7 +4,6 @@ from LaneClass import Line, ImageLine
 
 
 # Variables definitions
-
 DEFAULT_IMAGE_SHAPE = (720, 1280, 3)
 
 
@@ -62,6 +61,7 @@ def main():
                 raise NotImplemented
 
             cv2.imshow('final', line_image.image)
+            cv2.imshow('image_roi', line_image.image_roi)
             line_image.reset_binary_images()
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
