@@ -36,9 +36,9 @@ def line_detector(image_data, line_info):
                          np.mean(line_info.mov_avg_right[::-1][:, 1][0:MOV_AVG_LENGTH]),
                          np.mean(line_info.mov_avg_right[::-1][:, 2][0:MOV_AVG_LENGTH])])
 
-    if line_info.mov_avg_left.shape[0] > 1000:
+    if line_info.mov_avg_left.shape[0] > 100:
         line_info.mov_avg_left = line_info.mov_avg_left[0:MOV_AVG_LENGTH]
-    if line_info.mov_avg_right.shape[0] > 1000:
+    if line_info.mov_avg_right.shape[0] > 100:
         line_info.mov_avg_right = line_info.mov_avg_right[0:MOV_AVG_LENGTH]
 
     if abs(line_info.left_fit[0]) < 5e-5:
@@ -96,32 +96,6 @@ def calibrate_camera(image_files, nx, ny):
     return cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
 
-def fit_from_lines(left_fit, right_fit, img_w):
-    # Assume you now have a new warped binary image
-    # from the next frame of video (also called "binary_warped")
-    # It's now much easier to find line pixels!
-    nonzero = img_w.nonzero()
-    nonzeroy = np.array(nonzero[0])
-    nonzerox = np.array(nonzero[1])
-    margin = 100
-    left_lane_inds = ((nonzerox > (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] - margin)) & (
-    nonzerox < (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] + margin)))
-    right_lane_inds = (
-    (nonzerox > (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] - margin)) & (
-    nonzerox < (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] + margin)))
-
-    # Again, extract left and right line pixel positions
-    leftx = nonzerox[left_lane_inds]
-    lefty = nonzeroy[left_lane_inds]
-    rightx = nonzerox[right_lane_inds]
-    righty = nonzeroy[right_lane_inds]
-    # Fit a second order polynomial to each
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
-
-    return left_fit, right_fit
-
-
 def draw_lines(image_data, line_info):
 
     left_fitx = line_info.left_fit[0] * image_data.ploty ** 2 + line_info.left_fit[1] * image_data.ploty +\
@@ -137,10 +111,10 @@ def draw_lines(image_data, line_info):
     # Combine the result with the original image
     warp_zero = np.zeros_like(image_data.warped_binary).astype(np.uint8)
     image_data.unwarped_lines = np.dstack((warp_zero, warp_zero, warp_zero))
-    cv2.polylines(image_data.unwarped_lines, np.int_([pts_right]), isClosed=False, color=(255, 255, 0), thickness=25)
-    cv2.polylines(image_data.unwarped_lines, np.int_([pts_left]), isClosed=False, color=(0, 0, 255), thickness=25)
+    cv2.polylines(image_data.unwarped_lines, np.int_([pts_right]), isClosed=False, color=(0, 255, 0), thickness=25)
+    cv2.polylines(image_data.unwarped_lines, np.int_([pts_left]), isClosed=False, color=(0, 255, 0), thickness=25)
     unwarped = image_data.warp(inverse_warp=True)
-    image_data.image = cv2.addWeighted(image_data.image, 1, unwarped, 1, 0)
+    image_data.image = cv2.addWeighted(image_data.image, 1, unwarped, 2, 1)
 
     # ----- Radius Calculation ------ #
 
@@ -162,10 +136,10 @@ def draw_lines(image_data, line_info):
 
     # ----- Off Center Calculation ------ #
 
-    lane_width = (line_info.right_fit[2] - line_info.left_fit[2]) * line_info.xm_per_pix
+    #lane_width = (line_info.right_fit[2] - line_info.left_fit[2]) * line_info.xm_per_pix
     center = (line_info.right_fit[2] - line_info.left_fit[2]) / 2
-    off_left = (center - line_info.left_fit[2]) * line_info.xm_per_pix
-    off_right = -(line_info.right_fit[2] - center) * line_info.xm_per_pix
+    #off_left = (center - line_info.left_fit[2]) * line_info.xm_per_pix
+    #off_right = -(line_info.right_fit[2] - center) * line_info.xm_per_pix
     off_center = round((center - image_data.shape_h / 2.) * line_info.xm_per_pix,2)
 
     # --- Print text on screen ------ #
@@ -173,7 +147,6 @@ def draw_lines(image_data, line_info):
 
     for i, line in enumerate(text.split('\n')):
         i = 50 + 20 * i
-    #    cv2.putText(result, line, (0,i), cv2.FONT_HERSHEY_DUPLEX, 0.5,(255,255,255),1,cv2.LINE_AA)
-    #return result
+        cv2.putText(image_data.image, line, (0,i), cv2.FONT_HERSHEY_DUPLEX, 0.5,(255,255,255),1,cv2.LINE_AA)
 
 
