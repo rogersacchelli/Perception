@@ -29,9 +29,7 @@ class Line:
         :param image_data: ImageLine Object
         :return:
         """
-        histogram = np.sum(image_data.warped_binary[int(image_data.shape_w / 2):, :], axis=0)
-        # Create an output image to draw on and visualize the result
-        out_img = np.dstack((image_data.warped_binary, image_data.warped_binary, image_data.warped_binary)) * 255
+        histogram = np.sum(image_data.warped_binary[int(image_data.shape_h / 2):, :], axis=0)
         # Find the peak of the left and right halves of the histogram
         # These will be the starting point for the left and right lines
         midpoint = np.int(histogram.shape[0] / 2)
@@ -69,10 +67,6 @@ class Line:
             win_xright_low = rightx_current - margin
             win_xright_high = rightx_current + margin
 
-            # Draw the windows on the visualization image
-            #cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
-            #cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
-
             # Identify the nonzero pixels in x and y within the window
             good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (
                 nonzerox < win_xleft_high)).nonzero()[0]
@@ -99,11 +93,8 @@ class Line:
         righty = nonzeroy[right_lane_inds]
 
         # Fit a second order polynomial to each
-        left_fit = np.polyfit(lefty, leftx, 2)
-        right_fit = np.polyfit(righty, rightx, 2)
-
-        self.left_fit = left_fit
-        self.right_fit = right_fit
+        self.left_fit = np.polyfit(lefty, leftx, 2)
+        self.right_fit = np.polyfit(righty, rightx, 2)
 
 
 class ImageLine:
