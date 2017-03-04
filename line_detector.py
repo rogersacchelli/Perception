@@ -147,6 +147,4 @@ def draw_lines(image_data, line_info):
 
     for i, line in enumerate(text.split('\n')):
         i = 50 + 20 * i
-        cv2.putText(image_data.image, line, (0,i), cv2.FONT_HERSHEY_DUPLEX, 0.5,(255,255,255),1,cv2.LINE_AA)
-
-
+        cv2.putText(image_data.image, line, (0, i), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
