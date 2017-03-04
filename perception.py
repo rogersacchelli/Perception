@@ -64,7 +64,7 @@ def main():
             cv2.imshow('final', line_image.image)
             line_image.reset_binary_images()
 
-            if cv2.waitKey(30) & 0xFF == ord('q'):
+            if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
         else:
