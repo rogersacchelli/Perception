@@ -15,13 +15,10 @@ img_lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
 image_list = [img, img_yuv, img_yuv_inv, img_ycrcb, img_hsv, img_hls, img_lab]
 image_space = ['rgb', 'yuv', 'img_yuv_inv', 'ycrcb', 'hsv', 'hls', 'lab']
 
-print(np.equal(img_lab[:, :, 2], img_yuv_inv[:, :, 1]))
-
 for i, (v, cs) in enumerate(zip(image_list, image_space)):
     for j in range(3):
         plt.subplot(len(image_space), 3, 3 * i + j + 1)
         plt.axis('off')
         plt.title('Color Space %s' % cs)
         plt.imshow(v[:, :, j % 3], cmap='gray')
-
 plt.show()

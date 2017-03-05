@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 
+REGION_OF_INTEREST = (.5, 0.95, 0., 1.)     # (y_start, y_end, x_start, x_end) relative to image size
+
 
 class Line:
     """
@@ -41,13 +43,12 @@ class Line:
         minpix = 50
 
         if not self.left_detected or not self.right_detected:
-            histogram = np.sum(image_data.warped_binary[int(image_data.shape_h / 2):, :], axis=0)
+            histogram = np.sum(image_data.warped_binary[int(image_data.shape_roi_h / 2):, :], axis=0)
             # Find the peak of the left and right halves of the histogram
             # These will be the starting point for the left and right lines
             midpoint = np.int(histogram.shape[0] / 2)
             leftx_base = np.argmax(histogram[:midpoint])
             rightx_base = np.argmax(histogram[midpoint:]) + midpoint
-
 
         # Identify the x and y positions of all nonzero pixels in the image
         nonzero = image_data.warped_binary.nonzero()
@@ -61,7 +62,6 @@ class Line:
         # Create empty lists to receive left and right lane pixel indices
         left_lane_inds = []
         right_lane_inds = []
-
 
         if not self.left_detected or not self.right_detected:
             # Step through the windows one by one
@@ -120,16 +120,25 @@ class ImageLine:
     def __init__(self, image, ret, mtx, dist, rvecs, tvecs):
 
         self.image = image
-        self.image_roi = 0
-
         self.hls = 0
         self.yuv = 0
 
         self.shape_h = image.shape[0]
         self.shape_w = image.shape[1]
 
+        # REGION OF INTEREST
+
+        self.roi_y_start = int(REGION_OF_INTEREST[0] * self.shape_h)
+        self.roi_y_end = int(REGION_OF_INTEREST[1] * self.shape_h)
+        self.roi_x_start = int(REGION_OF_INTEREST[2] * self.shape_w)
+        self.roi_x_end = int(REGION_OF_INTEREST[3] * self.shape_w)
+        self.image_roi = self.image[self.roi_y_start:self.roi_x_end,self.roi_x_start:self.roi_x_end, :]
+        self.shape_roi_h = self.image_roi.shape[0]
+        self.shape_roi_w = self.image_roi.shape[1]
+
         self.binary_output_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_output_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_output = self.binary_output_s + self.binary_output_b
         self.binary_sobel_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_sobel_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
         self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
@@ -165,7 +174,7 @@ class ImageLine:
         self.unwarped_lines = np.zeros_like(self.image, dtype=np.int8)
 
     def undistort(self):
-        self.image = cv2.undistort(self.image, self.mtx, self.dist, None, self.mtx)
+        self.image_roi = cv2.undistort(self.image_roi, self.mtx, self.dist, None, self.mtx)
 
     def binary(self, sobel_kernel=9, mag_thresh=(3, 255), s_thresh=(190, 255), debug=False):
 
@@ -182,13 +191,13 @@ class ImageLine:
 
         hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
         lab = cv2.cvtColor(self.image, cv2.COLOR_BGR2LAB)
-        self.hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
-        self.lab = cv2.cvtColor(self.image, cv2.COLOR_BGR2LAB)
+        self.hls = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2HLS)
+        self.lab = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2LAB)
 
         # HLS COMPUTATION - WHILE LINES DETECTION
 
         # Sobel Transform
-        sobelx_s = cv2.Sobel(hls[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+        sobelx_s = cv2.Sobel(self.hls[:, :, 1], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
         sobely_s = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
         sobel_abs_s = np.abs(sobelx_s ** 2 + sobely_s ** 2)
@@ -197,7 +206,7 @@ class ImageLine:
         self.binary_sobel_s[(sobel_abs_s > mag_thresh[0]) & (sobel_abs_s <= mag_thresh[1])] = 1
 
         # Threshold color channel
-        self.binary_hls_s[(hls[:, :, 2] >= s_thresh[0]) & (hls[:, :, 2] <= s_thresh[1])] = 1
+        self.binary_hls_s[(self.hls[:, :, 1] >= s_thresh[0]) & (self.hls[:, :, 1] <= s_thresh[1])] = 1
 
         # Combine the two binary thresholds
 
@@ -206,7 +215,7 @@ class ImageLine:
 
         # LAB COMPUTATION - YELLOW LINES DETECTION
         # Sobel Transform
-        sobelx_b = cv2.Sobel(lab[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+        sobelx_b = cv2.Sobel(self.lab[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
         sobely_b = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
         sobel_abs_b = np.abs(sobelx_b ** 2 + sobely_b ** 2)
@@ -215,14 +224,14 @@ class ImageLine:
         self.binary_sobel_b[(sobel_abs_b > mag_thresh[0]) & (sobel_abs_b <= mag_thresh[1])] = 1
 
         # Threshold color channel
-        self.binary_lab_b[(lab[:, :, 2] >= s_thresh[0]) & (lab[:, :, 2] <= s_thresh[1])] = 1
+        self.binary_lab_b[(self.lab[:, :, 2] >= s_thresh[0]) & (self.lab[:, :, 2] <= s_thresh[1])] = 1
 
         # Combine the two binary thresholds
 
         self.binary_output_b[(self.binary_lab_b == 1) | (self.binary_sobel_b == 1)] = 1
         self.binary_output_b = np.uint8(255 * self.binary_output_b / np.max(self.binary_output_b))
 
-        cv2.imshow('binary_out', self.binary_output_b)
+        cv2.imshow('binary_out', self.binary_output_s + self.binary_output_b)
 
     def mask(self):
         # ---------------- MASKED IMAGE --------------------
@@ -257,7 +266,7 @@ class ImageLine:
         dst = np.float32([dst])
 
         if not inverse_warp:
-            self.warped_binary = cv2.warpPerspective(self.binary_mask, cv2.getPerspectiveTransform(src, dst),
+            self.warped_binary = cv2.warpPerspective(self.binary_output, cv2.getPerspectiveTransform(src, dst),
                                                      dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
         else:
             return cv2.warpPerspective(self.unwarped_lines, cv2.getPerspectiveTransform(dst, src),

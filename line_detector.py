@@ -6,21 +6,17 @@ import pickle
 
 OUT_EXAMPLES = False
 MOV_AVG_LENGTH = 5
-REGION_OF_INTEREST = (.5, 0.95, 0., 1.)     # (y_start, y_end, x_start, x_end) relative to image size
 
 
 def line_detector(image_data, line_info):
 
-    start_y = REGION_OF_INTEREST[0] * image_data.shape_h
-    end_y = REGION_OF_INTEREST[1] * image_data.shape_h
-    start_x = REGION_OF_INTEREST[2] * image_data.shape_w
-    end_x = REGION_OF_INTEREST[3] * image_data.shape_w
-
-    image_data.image_roi = image_data.image[start_y:end_y, start_x:end_x, :]
+    image_data.image_roi = image_data.image[image_data.roi_y_start:image_data.roi_y_end,
+                           image_data.roi_x_start:image_data.roi_x_end, :]
 
     image_data.undistort()
+    # Binary detection for LAB and HSL Color Space
     image_data.binary()
-    image_data.mask()
+    #image_data.mask()
     image_data.warp()
 
     if not line_info.right_detected or not line_info.left_detected:
@@ -121,7 +117,7 @@ def draw_lines(image_data, line_info):
     cv2.polylines(image_data.unwarped_lines, np.int_([pts_right]), isClosed=False, color=(0, 255, 0), thickness=25)
     cv2.polylines(image_data.unwarped_lines, np.int_([pts_left]), isClosed=False, color=(0, 255, 0), thickness=25)
     unwarped = image_data.warp(inverse_warp=True)
-    image_data.image = cv2.addWeighted(image_data.image, 1, unwarped, 2, 1)
+    image_data.image_roi = cv2.addWeighted(image_data.image_roi, 1, unwarped, 2, 1)
 
     # ----- Radius Calculation ------ #
 
