@@ -5,7 +5,7 @@ import os
 import pickle
 
 OUT_EXAMPLES = False
-MOV_AVG_LENGTH = 5
+MOV_AVG_LENGTH = 10
 
 
 def line_detector(image_data, line_info):
@@ -16,7 +16,7 @@ def line_detector(image_data, line_info):
     image_data.undistort()
     # Binary detection for LAB and HSL Color Space
     image_data.binary()
-    #image_data.mask()
+    image_data.mask()
     image_data.warp()
 
     if not line_info.right_detected or not line_info.left_detected:
@@ -39,10 +39,10 @@ def line_detector(image_data, line_info):
                          np.mean(line_info.mov_avg_right[::-1][:, 1][0:MOV_AVG_LENGTH]),
                          np.mean(line_info.mov_avg_right[::-1][:, 2][0:MOV_AVG_LENGTH])])
 
-    if line_info.mov_avg_left.shape[0] > 100:
-        line_info.mov_avg_left = line_info.mov_avg_left[0:MOV_AVG_LENGTH]
-    if line_info.mov_avg_right.shape[0] > 100:
-        line_info.mov_avg_right = line_info.mov_avg_right[0:MOV_AVG_LENGTH]
+    #if line_info.mov_avg_left.shape[0] > 100:
+    #    line_info.mov_avg_left = line_info.mov_avg_left[0:MOV_AVG_LENGTH]
+    #if line_info.mov_avg_right.shape[0] > 100:
+    #    line_info.mov_avg_right = line_info.mov_avg_right[0:MOV_AVG_LENGTH]
 
     if abs(line_info.left_fit[0]) < 5e-5:
         line_info.turn_side = 0

@@ -63,6 +63,8 @@ def main():
             #cv2.imshow('final', line_image.image)
             #cv2.imshow('image_roi', line_image.image_roi)
             line_image.reset_binary_images()
+            cv2.imshow('mask', line_image.binary_mask)
+            cv2.imshow('final', line_image.image_roi)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break

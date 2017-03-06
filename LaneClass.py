@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-REGION_OF_INTEREST = (.5, 0.95, 0., 1.)     # (y_start, y_end, x_start, x_end) relative to image size
+REGION_OF_INTEREST = (.55, 0.95, 0., 1.)     # (y_start, y_end, x_start, x_end) relative to image size
 
 
 class Line:
@@ -132,21 +132,21 @@ class ImageLine:
         self.roi_y_end = int(REGION_OF_INTEREST[1] * self.shape_h)
         self.roi_x_start = int(REGION_OF_INTEREST[2] * self.shape_w)
         self.roi_x_end = int(REGION_OF_INTEREST[3] * self.shape_w)
-        self.image_roi = self.image[self.roi_y_start:self.roi_x_end,self.roi_x_start:self.roi_x_end, :]
+        self.image_roi = self.image[self.roi_y_start:self.roi_y_end, self.roi_x_start:self.roi_x_end, :]
         self.shape_roi_h = self.image_roi.shape[0]
         self.shape_roi_w = self.image_roi.shape[1]
 
-        self.binary_output_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_output_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
+        self.binary_output_s = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_output_b = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
         self.binary_output = self.binary_output_s + self.binary_output_b
-        self.binary_sobel_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_sobel_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_lab_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.uint8)
+        self.binary_sobel_s = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_sobel_b = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_hls_s = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_lab_b = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_mask = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.uint8)
 
-        self.warped_binary = np.zeros_like(image)
-        self.unwarped_lines = np.zeros_like(image, dtype=np.int8)
+        self.warped_binary = np.zeros_like(self.image_roi)
+        self.unwarped_lines = np.zeros_like(self.image_roi, dtype=np.int8)
 
         self.ploty = np.linspace(0, self.shape_h - 1, self.shape_h)
 
@@ -162,21 +162,22 @@ class ImageLine:
         return cv2.cvtColor(self.image, cv2.COLOR_RGB2BGR)
 
     def reset_binary_images(self):
-        self.binary_output_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_output_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_sobel_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_sobel_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_hls_s = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_lab_b = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.float)
-        self.binary_mask = np.zeros(shape=(self.shape_h, self.shape_w), dtype=np.uint8)
+        self.binary_output_s = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_output_b = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_output = self.binary_output_s + self.binary_output_b
+        self.binary_sobel_s = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_sobel_b = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_hls_s = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_lab_b = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.float)
+        self.binary_mask = np.zeros(shape=(self.shape_roi_h, self.shape_roi_w), dtype=np.uint8)
 
-        self.warped_binary = np.zeros_like(self.image)
-        self.unwarped_lines = np.zeros_like(self.image, dtype=np.int8)
-
+        self.warped_binary = np.zeros_like(self.image_roi)
+        self.unwarped_lines = np.zeros_like(self.image_roi, dtype=np.int8)
+        
     def undistort(self):
         self.image_roi = cv2.undistort(self.image_roi, self.mtx, self.dist, None, self.mtx)
 
-    def binary(self, sobel_kernel=9, mag_thresh=(3, 255), s_thresh=(190, 255), debug=False):
+    def binary(self, sobel_kernel=11, mag_thresh=(15, 255), s_thresh=(190, 255), debug=False):
 
         # --------------------------- Binary Thresholding ----------------------------
         # Binary Thresholding is an intermediate step to improve lane line perception
@@ -189,8 +190,6 @@ class ImageLine:
         # The output is a binary image combined with best of both S transform and mag-
         # nitude thresholding.
 
-        hls = cv2.cvtColor(self.image, cv2.COLOR_BGR2HLS)
-        lab = cv2.cvtColor(self.image, cv2.COLOR_BGR2LAB)
         self.hls = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2HLS)
         self.lab = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2LAB)
 
@@ -198,7 +197,7 @@ class ImageLine:
 
         # Sobel Transform
         sobelx_s = cv2.Sobel(self.hls[:, :, 1], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-        sobely_s = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+        sobely_s = 0 #cv2.Sobel(self.hls[:, :, 1], cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
         sobel_abs_s = np.abs(sobelx_s ** 2 + sobely_s ** 2)
         sobel_abs_s = np.uint8(255 * sobel_abs_s / np.max(sobel_abs_s))
@@ -216,12 +215,13 @@ class ImageLine:
         # LAB COMPUTATION - YELLOW LINES DETECTION
         # Sobel Transform
         sobelx_b = cv2.Sobel(self.lab[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-        sobely_b = 0  # cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+        sobely_b = cv2.Sobel(self.lab[:, :, 2], cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
         sobel_abs_b = np.abs(sobelx_b ** 2 + sobely_b ** 2)
         sobel_abs_b = np.uint8(255 * sobel_abs_b / np.max(sobel_abs_b))
 
-        self.binary_sobel_b[(sobel_abs_b > mag_thresh[0]) & (sobel_abs_b <= mag_thresh[1])] = 1
+        #self.binary_sobel_b[(sobel_abs_b > mag_thresh[0]) & (sobel_abs_b <= mag_thresh[1])] = 1
+        self.binary_sobel_b[(sobel_abs_b > 1) & (sobel_abs_b <= mag_thresh[1])] = 1
 
         # Threshold color channel
         self.binary_lab_b[(self.lab[:, :, 2] >= s_thresh[0]) & (self.lab[:, :, 2] <= s_thresh[1])] = 1
@@ -231,31 +231,45 @@ class ImageLine:
         self.binary_output_b[(self.binary_lab_b == 1) | (self.binary_sobel_b == 1)] = 1
         self.binary_output_b = np.uint8(255 * self.binary_output_b / np.max(self.binary_output_b))
 
-        cv2.imshow('binary_out', self.binary_output_s + self.binary_output_b)
+        self.binary_output = self.binary_output_b + self.binary_output_s
+
 
     def mask(self):
         # ---------------- MASKED IMAGE --------------------
         offset = 100
-        mask_polyg = np.array([[(0 + offset, self.shape_h),
-                                (self.shape_w / 2.5, self.shape_h / 1.65),
-                                (self.shape_w / 1.8, self.shape_h / 1.65),
-                                (self.shape_w, self.shape_h)]],
+        mask_polyg = np.array([[(0 + offset, self.shape_roi_h),
+                                (self.shape_roi_w // 2.5, 50),
+                                (self.shape_roi_w // 1.8, 50),
+                                (self.shape_roi_w, self.shape_roi_h)]],
                               dtype=np.int)
 
         # This time we are defining a four sided polygon to mask
         # Applying polygon
-        cv2.fillPoly(self.binary_mask, mask_polyg, 255)
 
-        self.binary_mask = cv2.bitwise_and(self.binary_output_s, self.binary_mask)
+        # Next we'll create a masked edges image using cv2.fillPoly()
+        mask_img = np.zeros_like(self.binary_output)
+
+        # This time we are defining a four sided polygon to mask
+        # Applying polygon
+        cv2.fillPoly(mask_img, mask_polyg, 255)
+        masked_edges = cv2.bitwise_and(self.binary_output, mask_img)
+        self.binary_output = masked_edges
+        cv2.imshow('binary', self.binary_output)
+
+        #cv2.imwrite('mask_out.jpg', self.binary_output)
 
     def warp(self, inverse_warp=False):
 
         line_dst_offset = 200
 
-        src = [595, 452], \
-              [685, 452], \
-              [1110, self.shape_h], \
-              [220, self.shape_h]
+        # src = [595, 452], \
+        #       [685, 452], \
+        #       [1110, self.shape_h], \
+        #       [220, self.shape_h]
+        src = [573, 43], \
+              [659, 43], \
+              [1155, self.shape_roi_h], \
+              [325, self.shape_roi_h]
 
         dst = [src[3][0] + line_dst_offset, 0], \
               [src[2][0] - line_dst_offset, 0], \
@@ -267,9 +281,9 @@ class ImageLine:
 
         if not inverse_warp:
             self.warped_binary = cv2.warpPerspective(self.binary_output, cv2.getPerspectiveTransform(src, dst),
-                                                     dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
+                                                     dsize=(self.shape_roi_w, self.shape_roi_h), flags=cv2.INTER_LINEAR)
         else:
             return cv2.warpPerspective(self.unwarped_lines, cv2.getPerspectiveTransform(dst, src),
-                                                      dsize=(self.shape_w, self.shape_h), flags=cv2.INTER_LINEAR)
+                                                      dsize=(self.shape_roi_w, self.shape_roi_h), flags=cv2.INTER_LINEAR)
 
 
