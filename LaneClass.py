@@ -177,7 +177,7 @@ class ImageLine:
     def undistort(self):
         self.image_roi = cv2.undistort(self.image_roi, self.mtx, self.dist, None, self.mtx)
 
-    def binary(self, sobel_kernel=11, mag_thresh=(15, 255), s_thresh=(190, 255), debug=False):
+    def binary(self, sobel_kernel=31, mag_thresh=(10, 255), s_thresh=(150, 255), debug=False):
 
         # --------------------------- Binary Thresholding ----------------------------
         # Binary Thresholding is an intermediate step to improve lane line perception
@@ -190,13 +190,13 @@ class ImageLine:
         # The output is a binary image combined with best of both S transform and mag-
         # nitude thresholding.
 
-        self.hls = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2HLS)
+        self.hls = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2RGB)
         self.lab = cv2.cvtColor(self.image_roi, cv2.COLOR_BGR2LAB)
 
         # HLS COMPUTATION - WHILE LINES DETECTION
 
         # Sobel Transform
-        sobelx_s = cv2.Sobel(self.hls[:, :, 1], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+        sobelx_s = cv2.Sobel(self.hls[:, :, 2], cv2.CV_64F, 1, 0, ksize=sobel_kernel)
         sobely_s = 0 #cv2.Sobel(self.hls[:, :, 1], cv2.CV_64F, 0, 1, ksize=sobel_kernel)
 
         sobel_abs_s = np.abs(sobelx_s ** 2 + sobely_s ** 2)
@@ -205,7 +205,7 @@ class ImageLine:
         self.binary_sobel_s[(sobel_abs_s > mag_thresh[0]) & (sobel_abs_s <= mag_thresh[1])] = 1
 
         # Threshold color channel
-        self.binary_hls_s[(self.hls[:, :, 1] >= s_thresh[0]) & (self.hls[:, :, 1] <= s_thresh[1])] = 1
+        self.binary_hls_s[(self.hls[:, :, 2] >= s_thresh[0]) & (self.hls[:, :, 2] <= s_thresh[1])] = 1
 
         # Combine the two binary thresholds
 
@@ -220,8 +220,7 @@ class ImageLine:
         sobel_abs_b = np.abs(sobelx_b ** 2 + sobely_b ** 2)
         sobel_abs_b = np.uint8(255 * sobel_abs_b / np.max(sobel_abs_b))
 
-        #self.binary_sobel_b[(sobel_abs_b > mag_thresh[0]) & (sobel_abs_b <= mag_thresh[1])] = 1
-        self.binary_sobel_b[(sobel_abs_b > 1) & (sobel_abs_b <= mag_thresh[1])] = 1
+        self.binary_sobel_b[(sobel_abs_b > mag_thresh[0]) & (sobel_abs_b <= mag_thresh[1])] = 1
 
         # Threshold color channel
         self.binary_lab_b[(self.lab[:, :, 2] >= s_thresh[0]) & (self.lab[:, :, 2] <= s_thresh[1])] = 1
@@ -232,6 +231,8 @@ class ImageLine:
         self.binary_output_b = np.uint8(255 * self.binary_output_b / np.max(self.binary_output_b))
 
         self.binary_output = self.binary_output_b + self.binary_output_s
+        cv2.imshow('lab', self.binary_output_b)
+        cv2.imshow('hls_l',self.binary_output_s)
 
 
     def mask(self):
@@ -256,7 +257,6 @@ class ImageLine:
         self.binary_output = masked_edges
         cv2.imshow('binary', self.binary_output)
 
-        #cv2.imwrite('mask_out.jpg', self.binary_output)
 
     def warp(self, inverse_warp=False):
 
@@ -266,10 +266,10 @@ class ImageLine:
         #       [685, 452], \
         #       [1110, self.shape_h], \
         #       [220, self.shape_h]
-        src = [573, 43], \
-              [659, 43], \
-              [1155, self.shape_roi_h], \
-              [325, self.shape_roi_h]
+        src = [610, 43], \
+              [677, 43], \
+              [1115, self.shape_roi_h], \
+              [220, self.shape_roi_h]
 
         dst = [src[3][0] + line_dst_offset, 0], \
               [src[2][0] - line_dst_offset, 0], \

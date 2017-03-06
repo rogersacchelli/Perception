@@ -86,7 +86,6 @@ def calibrate_camera(image_files, nx, ny):
         img = cv2.imread(i)
         if img.shape[0] != 720:
             img = cv2.resize(img, (1280, 720))
-        cv2.imshow('image', img)
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         ret, corners = cv2.findChessboardCorners(gray, (nx, ny))
